@@ -43,6 +43,6 @@ All training are launched by running `train.py` with option and arguments. For e
 For the training arguments, please refer to the help `python train.py [option] --help`
 
 
-#### Some related works
+### Some related works
 * Z. Wang, C. Hu, J. Liu and X. Yao, "[The fun facets of Mario: Multifaceted experience-driven PCG via reinforcement learning](https://dl.acm.org/doi/abs/10.1145/3555858.3563282?casa_token=AHQWYSj_GyoAAAAA:MhwOltqfijP1NQj-c6NaTQikCnlNwyaMky07gCvTK5ZlSq063ew40awAcqEcw6S5zG9Sq9ZyDsspuaM)," in *Proceedings of the 17th International Conference on the Foundations of Digital Games*, 2022, pp. 1-8
 * T. Shu, J. Liu and G. N. Yannakakis, "[Experience-Driven PCG via Reinforcement Learning: A Super Mario Bros Study](https://ieeexplore.ieee.org/document/9619124)," in *2021 IEEE Conference on Games*, 2021, pp. 1-9
