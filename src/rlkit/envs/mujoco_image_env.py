@@ -72,7 +72,6 @@ class ImageMujocoEnv(ProxyEnv, Env):
         return full_obs
 
     def get_image(self):
-        """TODO: this should probably consider history"""
         return self._image_observation()
 
     def _get_obs(self, history_flat, true_state):

@@ -1,7 +1,12 @@
 import csv
 import time
+
+import torch
+
+from plots import print_compare_tab_nonrl
+from src.gan.gankits import *
 from src.smb.level import *
-from itertools import combinations
+from itertools import combinations, chain
 from src.utils.filesys import getpath
 from src.smb.asyncsimlt import AsycSimltPool
 
@@ -66,6 +71,37 @@ def evaluate_gen_log(path, rfunc_name, parallel=5):
 
 
 if __name__ == '__main__':
+    print_compare_tab_nonrl()
+
+    # arr = [[1, 2], [1, 2]]
+    # arr = [*chain(*arr)]
+    # print(arr)
+    # for i in range(5):
+    #     path = f'training_data/GAN{i}'
+        # lvls = []
+        # init_lateves = torch.tensor(np.load(getpath('analysis/initial_seg.npy')), device='cuda:0')
+        # decoder = get_decoder(device='cuda:0')
+        # init_seg_onehots = decoder(init_lateves.view(*init_lateves.shape, 1, 1))
+        # gan = get_decoder(f'{path}/decoder.pth', device='cuda:0')
+        # for init_seg_onehot in init_seg_onehots:
+        #     seg_onehots = gan(sample_latvec(25, device='cuda:0'))
+        #     a = init_seg_onehot.view(1, *init_seg_onehot.shape)
+        #     b = seg_onehots
+        #     # print(a.shape, b.shape)
+        #     segs = process_onehot(torch.cat([a, b], dim=0))
+        #     level = lvlhcat(segs)
+        #     lvls.append(level)
+        # save_batch(lvls, getpath(path, 'samples.lvls'))
+        # lvls = load_batch(f'{path}/samples.lvls')[:15]
+        # imgs = [lvl.to_img() for lvl in lvls]
+        # make_img_sheet(imgs, 1, save_path=f'generation_results/GAN/trial{i+1}/sample_lvls.png')
+
+    # ts = torch.tensor([
+    #     [[0, 0], [0, 1], [0, 2]],
+    #     [[1, 0], [1, 1], [1, 2]],
+    # ])
+    # print(ts.shape)
+    # print(ts[[*range(2)], [1, 2], :])
     # task = 'fhp'
     # parallel = 50
     # samples = []
@@ -92,13 +128,13 @@ if __name__ == '__main__':
     #     hms += task_hms
     # np.save(getpath('test_data', f'samples_dists-{task}.npy'), hms)
 
-    start = time.time()
-    samples = load_batch(getpath('test_data/varpm-fhp/l0.0_m2/t1/samples.lvls'))
-    distmat = []
-    for a in samples:
-        dist_list = []
-        for b in samples:
-            dist_list.append(hamming_dis(a, b))
-        distmat.append(dist_list)
-    print(time.time() - start)
+    # start = time.time()
+    # samples = load_batch(getpath('test_data/varpm-fhp/l0.0_m2/t1/samples.lvls'))
+    # distmat = []
+    # for a in samples:
+    #     dist_list = []
+    #     for b in samples:
+    #         dist_list.append(hamming_dis(a, b))
+    #     distmat.append(dist_list)
+    # print(time.time() - start)
     pass

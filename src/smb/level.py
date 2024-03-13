@@ -6,6 +6,7 @@ from itertools import product
 from PIL import Image, ImageDraw
 from scipy.stats import entropy
 
+from src.utils.img import make_img_sheet
 from src.utils.mymath import jsdiv
 from src.utils.filesys import getpath
 
@@ -409,6 +410,17 @@ def traverse_batched_level_files(path):
 
 
 if __name__ == '__main__':
+    for task in ('lgp', 'fhp'):
+        for t in range(1, 6):
+            lvls = load_batch(f'test_data/sac/{task}/t{t}/samples.lvls')
+            samples = [lvl[:, :16*16] for lvl in lvls[:10]]
+            make_img_sheet([s.to_img() for s in samples], 1, y_margin=12, save_path=f'test_data/sac/{task}/t{t}/samples.png')
+            for l in ('0.1', '0.3', '0.5'):
+                lvls = load_batch(f'test_data/varpm-{task}/l{l}_m5/t{t}/samples.lvls')
+                samples = [lvl[:, :16 * 16] for lvl in lvls[:10]]
+                make_img_sheet([s.to_img() for s in samples], 1, y_margin=12,
+                               save_path=f'test_data/varpm-{task}/l{l}_m5/t{t}/samples.png')
+
     # for lvl, path in traverse_level_files('smb/levels'):
     #     lvl.to_img(f'smb/levels_render/{path}.png')
     #     tmp = lvl.to_num_arr()

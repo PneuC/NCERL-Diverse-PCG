@@ -1,16 +1,25 @@
 import glob
+import json
 import os
+import re
+
 import numpy as np
 import pandas as pds
 import matplotlib
 import matplotlib.pyplot as plt
 from math import sqrt
+import torch
 from root import PRJROOT
 from sklearn.manifold import TSNE
 from itertools import product, chain
-from src.smb.level import load_batch, hamming_dis
+# from src.drl.drl_uses import load_cfgs
+from src.gan.gankits import get_decoder, process_onehot
+from src.gan.gans import nz
+from src.smb.level import load_batch, hamming_dis, lvlhcat
+from src.utils.datastruct import RingQueue
 from src.utils.filesys import load_dict_json, getpath
 from src.utils.img import make_img_sheet
+from torch.distributions import Normal
 
 matplotlib.rcParams["axes.formatter.limits"] = (-5, 5)
 
@@ -84,6 +93,77 @@ def print_compare_tab():
     _print_block('fhp')
     print('    \\midrule')
     print('    \\multirow{8}{*}{MultiFacet}')
+    _print_block('lgp')
+    pass
+
+def print_compare_tab_nonrl():
+    # rand_lgp, rand_fhp, rand_divs = load_dict_json(
+    #     'test_data/rand_policy/performance.csv', 'lgp', 'fhp', 'diversity'
+    # )
+    # rand_performance = {'lgp': rand_lgp, 'fhp': rand_fhp, 'diversity': rand_divs}
+
+    def _print_line(_data, minimise=False):
+        means = _data.mean(axis=-1)
+        stds = _data.std(axis=-1)
+        max_i, min_i = np.argmax(means), np.argmin(means)
+        mean_str_content = [*map(lambda x: '%.4g' % x, _data.mean(axis=-1))]
+        std_str_content = [*map(lambda x: '$\pm$%.3g' % x, _data.std(axis=-1))]
+        if minimise:
+            mean_str_content[min_i] = r'\textbf{%s}' % mean_str_content[min_i]
+            mean_str_content[max_i] = r'\textit{%s}' % mean_str_content[max_i]
+            std_str_content[min_i] = r'\textbf{%s}' % std_str_content[min_i]
+            std_str_content[max_i] = r'\textit{%s}' % std_str_content[max_i]
+        else:
+            mean_str_content[max_i] = r'\textbf{%s}' % mean_str_content[max_i]
+            mean_str_content[min_i] = r'\textit{%s}' % mean_str_content[min_i]
+            std_str_content[max_i] = r'\textbf{%s}' % std_str_content[max_i]
+            std_str_content[min_i] = r'\textit{%s}' % std_str_content[min_i]
+        print('    &', ' & '.join(mean_str_content), r'\\')
+        print('    & &', ' & '.join(std_str_content), r'\\')
+        pass
+
+    def _print_block(_task):
+        fds = [
+            f'GAN-{_task}', f'DDPM-{_task}',
+            f'varpm-{_task}/l0.0_m5', f'varpm-{_task}/l0.1_m5', f'varpm-{_task}/l0.2_m5',
+            f'varpm-{_task}/l0.3_m5', f'varpm-{_task}/l0.4_m5', f'varpm-{_task}/l0.5_m5'
+        ]
+        rewards, divs = [], []
+        for fd in fds:
+            rewards.append([])
+            divs.append([])
+            # print(getpath())
+            for path in glob.glob(getpath('test_data', fd, '**', 'performance.csv'), recursive=True):
+                reward, div = load_dict_json(path, 'reward', 'diversity')
+                rewards[-1].append(reward)
+                divs[-1].append(div)
+        rewards = np.array(rewards)
+        divs = np.array(divs)
+
+        print('    & \\multirow{2}{*}{Reward}')
+        _print_line(rewards)
+        print('    \\cline{2-10}')
+        print('    & \\multirow{2}{*}{Diversity}')
+        _print_line(divs)
+        print('    \\cline{2-10}')
+        # print('    & \\multirow{2}{*}{G-mean}')
+        # gmean = np.sqrt(rewards * divs)
+        # _print_line(gmean)
+        #
+        # print('    \\cline{2-10}')
+        # print('    & \\multirow{2}{*}{N-rank}')
+        # r_rank = np.zeros_like(rewards.flatten())
+        # r_rank[np.argsort(-rewards.flatten())] = np.linspace(1, len(r_rank), len(r_rank))
+        #
+        # d_rank = np.zeros_like(divs.flatten())
+        # d_rank[np.argsort(-divs.flatten())] = np.linspace(1, len(r_rank), len(r_rank))
+        # n_rank = (r_rank.reshape([8, 5]) + d_rank.reshape([8, 5])) / (2 * 5)
+        # _print_line(n_rank, True)
+
+    print('    \\multirow{4}{*}{MarioPuzzle}')
+    _print_block('fhp')
+    print('    \\midrule')
+    print('    \\multirow{4}{*}{MultiFacet}')
     _print_block('lgp')
     pass
 
@@ -389,16 +469,21 @@ def plot_varpm_heat(task, name):
     # _plot_map(g_mean_map, g_std_map,'G-mean')
 
 def vis_samples():
-    for l, m in product(['0.0', '0.1', '0.2', '0.3', '0.4', '0.5'], [2, 3, 4, 5]):
-        for i in range(1, 6):
-            lvls = load_batch(f'{PRJROOT}/test_data/varpm-fhp/l{l}_m{m}/t{i}/samples.lvls')
-            imgs = [lvl.to_img(save_path=None) for lvl in lvls[:10]]
-            make_img_sheet(imgs, 1, save_path=f'{PRJROOT}/test_data/varpm-fhp/l{l}_m{m}/t{i}/samples.png')
-    for algo in ['sac', 'egsac', 'asyncsac', 'dvd', 'sunrise', 'pmoe']:
-        for i in range(1, 6):
-            lvls = load_batch(f'{PRJROOT}/test_data/{algo}/fhp/t{i}/samples.lvls')
-            imgs = [lvl.to_img(save_path=None) for lvl in lvls[:10]]
-            make_img_sheet(imgs, 1, save_path=f'{PRJROOT}/test_data/{algo}/fhp/t{i}/samples.png')
+    # for l, m in product(['0.0', '0.1', '0.2', '0.3', '0.4', '0.5'], [2, 3, 4, 5]):
+    #     for i in range(1, 6):
+    #         lvls = load_batch(f'{PRJROOT}/test_data/varpm-fhp/l{l}_m{m}/t{i}/samples.lvls')
+    #         imgs = [lvl.to_img(save_path=None) for lvl in lvls[:10]]
+    #         make_img_sheet(imgs, 1, save_path=f'{PRJROOT}/test_data/varpm-fhp/l{l}_m{m}/t{i}/samples.png')
+    # for algo in ['sac', 'egsac', 'asyncsac', 'dvd', 'sunrise', 'pmoe']:
+    #     for i in range(1, 6):
+    #         lvls = load_batch(f'{PRJROOT}/test_data/{algo}/fhp/t{i}/samples.lvls')
+    #         imgs = [lvl.to_img(save_path=None) for lvl in lvls[:10]]
+    #         make_img_sheet(imgs, 1, save_path=f'{PRJROOT}/test_data/{algo}/fhp/t{i}/samples.png')
+    for i in range(1, 6):
+        lvls = load_batch(f'{PRJROOT}/test_data/DDPM-fhp/t{i}/samples.lvls')
+        imgs = [lvl.to_img(save_path=None) for lvl in lvls[:10]]
+        make_img_sheet(imgs, 1, save_path=f'{PRJROOT}/test_data/DDPM-fhp/t{i}/samples.png')
+        pass
     pass
 
 def make_tsne(task, title, n=500, save_path=None):
@@ -470,18 +555,169 @@ def make_tsne(task, title, n=500, save_path=None):
     else:
         plt.show()
 
+def _prob_fmt(p, digitals=3, threshold=0.001):
+    fmt = '%.' + str(digitals) + 'f'
+    if p < threshold:
+        return '$\\approx 0$'
+    else:
+        txt = '$%s$' % ((fmt % p)[1:])
+        if txt == '$.000$':
+            txt = '$1.00$'
+        return txt
 
+def _g_fmt(v, digitals=4):
+    fmt = '%.' + str(digitals) + 'g'
+    txt = (fmt % v)
+    lack = digitals - len(txt.replace('-', '').replace('.', ''))
+    if lack > 0 and '.' not in txt:
+        txt += '.'
+    return txt + '0' * lack
+    pass
+
+def print_selection_prob(path, h=15, runs=2):
+    s0 = 0
+    model = torch.load(getpath(f'{path}/policy.pth'), map_location='cpu')
+    model.requires_grad_(False)
+    model.to('cpu')
+    n = 11
+    # n = load_cfgs(path, 'N')
+    # print(model.m)
+
+    init_vec = np.load(getpath('analysis/initial_seg.npy'))[s0]
+    decoder = get_decoder(device='cpu')
+    obs_buffer = RingQueue(n)
+    for r in range(runs):
+        for _ in range(h): obs_buffer.push(np.zeros([nz]))
+        obs_buffer.push(init_vec)
+        level_latvecs = [init_vec]
+        probs = np.zeros([model.m, h])
+        # probs = []
+        selects = []
+        for t in range(h):
+            # probs.append([])
+            obs = torch.tensor(np.concatenate(obs_buffer.to_list(), axis=-1), dtype=torch.float).view([1, -1])
+            muss, stdss, betas = model.get_intermediate(torch.tensor(obs))
+            i = torch.multinomial(betas.squeeze(), 1).item()
+            # print(i)
+            mu, std = muss[0][i], stdss[0][i]
+            action = Normal(mu, std).rsample([1]).squeeze().numpy()
+            # print(action)
+            # print(mu)
+            # print(std)
+            # print(action.numpy())
+            obs_buffer.push(action)
+            level_latvecs.append(action)
+            # i = torch.multinomial(betas.squeeze(), 1).item()
+            # print(i)
+            probs[:, t] = betas.squeeze().numpy()
+            selects.append(i)
+            pass
+        onehots = decoder(torch.tensor(level_latvecs).view(-1, nz, 1, 1))
+        segs = process_onehot(onehots)
+        lvl = lvlhcat(segs)
+        lvl.to_img(f'figures/gen_process/run{r}-01.png')
+        txts = [[_prob_fmt(p) for p in row] for row in probs]
+        for t, i in enumerate(selects):
+            txts[i][t] = r'$\boldsymbol{%s}$' % txts[i][t][1:-1]
+        for i, txt in enumerate(txts):
+            print(f'    & $\\beta_{i+1}$ &', ' & '.join(txt), r'\\')
+        print(r'\midrule')
+
+    pass
+
+def calc_selection_freqs(task, n):
+    def _count_one_init():
+        counts = np.zeros([model.m])
+        # init_vec = np.load(getpath('analysis/initial_seg.npy'))
+        obs_buffer = RingQueue(n)
+        for _ in range(runs):
+            for _ in range(h): obs_buffer.push(np.zeros([len(init_vecs), nz]))
+            obs_buffer.push(init_vecs)
+            # level_latvecs = [init_vec]
+            for _ in range(h):
+                obs = np.concatenate(obs_buffer.to_list(), axis=-1)
+                obs = torch.tensor(obs, device='cuda:0', dtype=torch.float)
+                muss, stdss, betas = model.get_intermediate(obs)
+                selects = torch.multinomial(betas.squeeze(), 1).squeeze()
+                mus = muss[[*range(len(init_vecs))], selects, :]
+                stds = stdss[[*range(len(init_vecs))], selects, :]
+                actions = Normal(mus, stds).rsample().squeeze().cpu().numpy()
+                obs_buffer.push(actions)
+                for i in selects:
+                    counts[i] = counts[i] + 1
+        return counts
+        # onehots = decoder(torch.tensor(level_latvecs).view(-1, nz, 1, 1))
+        pass
+    pass
+    init_vecs = np.load(getpath('analysis/initial_seg.npy'))
+    freqs = [[] for _ in range(30)]
+    start_line = 0
+    for l in ('0.0', '0.1', '0.2', '0.3', '0.4', '0.5'):
+        print(r'    \midrule')
+        for t, m in product(range(1, 6), (2, 3, 4, 5)):
+            path = getpath(f'test_data/varpm-{task}/l{l}_m{m}/t{t}')
+            model = torch.load(getpath(f'{path}/policy.pth'), map_location='cuda:0')
+            model.requires_grad_(False)
+            freq = np.zeros([m])
+            # n = load_cfgs(path, 'N')
+            runs, h = 100, 25
+            freq += _count_one_init()
+            freq /= (len(init_vecs) * runs * h)
+            freq = np.sort(freq)[::-1]
+            i = start_line + t - 1
+            freqs[i] += freq.tolist()
+            print(freqs[i])
+        start_line += 5
+        print(freqs)
+    with open(getpath(f'analysis/select_freqs-{task}.json'), 'w') as f:
+        json.dump(freqs, f)
+
+def print_selection_freq():
+    # task, n = 'lgp', 5
+    task, n = 'fhp', 11
+    if not os.path.exists(getpath(f'analysis/select_freqs-{task}.json')):
+        calc_selection_freqs(task, n)
+    with open(getpath(f'analysis/select_freqs-{task}.json'), 'r') as f:
+        freqs = json.load(f)
+    lbds = ['0.0', '0.1', '0.2', '0.3', '0.4', '0.5']
+    for i, row_data in enumerate(freqs):
+        if i % 5 == 0:
+            print(r'  \midrule')
+            print(r'  \multirow{5}{*}{$%s$}' % lbds[i//5])
+        txt = ' & '.join(map(_prob_fmt, row_data))
+        print(f'  & {i%5+1} &', txt, r'\\')
+
+def print_individual_performances(task):
+    for m, l in product((2, 3, 4, 5), ('0.0', '0.1', '0.2', '0.3', '0.4', '0.5')):
+        values = []
+        if l == '0.0':
+            print(r'  \midrule')
+            print(r'  \multirow{6}{*}{%d}' % m)
+        for t in range(1, 6):
+            path = f'test_data/varpm-{task}/l{l}_m{m}/t{t}/performance.csv'
+            reward, diversity = load_dict_json(path, 'reward', 'diversity')
+            values.append([reward, diversity])
+        values.sort(key=lambda item: -item[0])
+        values = [*chain(*values)]
+        txts = [_g_fmt(v) for v in values]
+        print('  &', f'${l}$ & ', ' & '.join(txts), r'\\')
+    pass
 
 if __name__ == '__main__':
-
-    print_compare_tab()
+    # print_selection_prob('test_data/varpm-fhp/l0.5_m5/t5')
+    # print_selection_prob('test_data/varpm-fhp/l0.1_m5/t5')
+    # print_selection_freq()
+    # print_compare_tab_nonrl()
+    # print_individual_performances('fhp')
+    # print('\n\n')
+    # print_individual_performances('lgp')
 
     # plot_cmp_learning_curves('fhp', save_path='results/learning_curves/fhp.png', title='MarioPuzzle')
     # plot_cmp_learning_curves('lgp', save_path='results/learning_curves/lgp.png', title='MultiFacet')
 
     # plot_crosstest_scatters('fhp', title='MarioPuzzle')
     # plot_crosstest_scatters('lgp', title='MultiFacet')
-    # plot_crosstest_scatters('fhp', yrange=(0, 2500), xrange=(20, 70), title='MarioPuzzle')
+    # # plot_crosstest_scatters('fhp', yrange=(0, 2500), xrange=(20, 70), title='MarioPuzzle')
     # plot_crosstest_scatters('lgp', yrange=(0, 1500), xrange=(20, 50), title='MultiFacet')
     # plot_crosstest_scatters('lgp', yrange=(0, 800), xrange=(44, 48), title=' ')
 
@@ -489,7 +725,7 @@ if __name__ == '__main__':
     # plot_varpm_heat('fhp', 'MarioPuzzle')
     # plot_varpm_heat('lgp', 'MultiFacet')
 
-    # vis_samples()
+    vis_samples()
 
     # make_tsne('fhp', 'MarioPuzzle', n=100)
     # make_tsne('lgp', 'MultiFacet', n=100)

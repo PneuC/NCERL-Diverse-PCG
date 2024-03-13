@@ -56,7 +56,7 @@ class AsyncOffPolicyALgo:
             t = 1
             while self.num_trans >= (self.num_updates + 1) * self.update_per:
                 # agent.update(*self.rep_mem.sample(self.batch))
-                self.trainer.train_from_torch(self.rep_mem.sample(self.batch)) # TODO: check data format
+                self.trainer.train_from_torch(self.rep_mem.sample(self.batch))
                 self.num_updates += 1
                 if not close and t == model_credits:
                     break

@@ -40,12 +40,12 @@ def set_GAN_parser(parser):
     parser.add_argument('--repeatG', type=int, default=1, help='repeatly training G for how many time for each iteration')
     parser.add_argument('--lrD', type=float, default=4e-4, help='learning rate for D, default=4e-4')
     parser.add_argument('--lrG', type=float, default=1e-4, help='learning rate for G, default=1e-4')
-    parser.add_argument('--regD', type=float, default=5e-4, help='weight_decay for D, default=5e-4')
+    parser.add_argument('--regD', type=float, default=3e-4, help='weight_decay for D, default=1e-3')
     parser.add_argument('--regG', type=float, default=0., help='weight_decay for G, default=0')
     parser.add_argument('--beta1', type=float, default=0., help='beta1 parameter for Adam optimiser, default=0.')
     parser.add_argument('--beta2', type=float, default=0.9, help='beta2 parameter for Adam optimiser, default=0.9')
     parser.add_argument('--gpuid', type=int, default=0, help='id of gpu. If smaller than 0, use cpu')
-    parser.add_argument('--path_', type=str, default='', help='root_folder to store training data')
+    parser.add_argument('--res_path', type=str, default='', help='root_folder to store training data')
     parser.add_argument('--weight_clip', type=float, default=0., help='clip weight of dicriminator into [-this, this] if this > 0')
     parser.add_argument('--noise', type=str, default='uniform', help='Type of noise distribution')
     parser.add_argument('--base_channels', type=int, default=32, help='Number of channels of the layer with least channels')
@@ -120,26 +120,26 @@ def train_GAN(args):
                 loss_G = -netD(fake).mean()
                 loss_G.backward()
                 optG.step()
-        # Evaluate
-        if t % args.eval_itv == (args.eval_itv - 1):
-            netG.eval()
-            netD.eval()
-            with torch.no_grad():
-                real = torch.stack(data[:min(100, len(data))])
-                z = sample_latvec(100, device=device, distribuion=args.noise)
-                fake = netG(z)
-                y_real = netD(real).mean().item()
-                y_fake = netD(fake).mean().item()
-            hamming_divs, tpjs_divs = evaluate_diversity(process_onehot(fake))
-
-            items = (t+1, y_real, y_fake, hamming_divs, tpjs_divs, time.time() - start_time)
-            log_writer.writerow(items)
-            print(
-                'Iteration %d, y-real=%.3g, y-fake=%.3g, Hamming-divs: %.5g, TPJS-divs: %.5g, '
-                'time: %.1fs' % items
-            )
-            netD.train()
-            netG.train()
+        # # Evaluate
+        # if t % args.eval_itv == (args.eval_itv - 1):
+        #     netG.eval()
+        #     netD.eval()
+        #     with torch.no_grad():
+        #         real = torch.stack(data[:min(100, len(data))])
+        #         z = sample_latvec(100, device=device, distribuion=args.noise)
+        #         fake = netG(z)
+        #         y_real = netD(real).mean().item()
+        #         y_fake = netD(fake).mean().item()
+        #     # hamming_divs, tpjs_divs = evaluate_diversity(process_onehot(fake))
+        #
+        #     # items = (t+1, y_real, y_fake, hamming_divs, tpjs_divs, time.time() - start_time)
+        #     # log_writer.writerow(items)
+        #     print(
+        #         'Iteration %d, y-real=%.3g, y-fake=%.3g, Hamming-divs: %.5g, TPJS-divs: %.5g, '
+        #         'time: %.1fs' % items
+        #     )
+        #     netD.train()
+        #     netG.train()
         if t % args.save_itv == (args.save_itv - 1):
             netG.eval()
             netD.eval()
