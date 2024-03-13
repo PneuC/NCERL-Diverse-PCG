@@ -20,10 +20,11 @@ If you used the code in this repository, please cite our paper:
 * torch 1.8.2+cu111
 * numpy 1.20.3
 * gym 0.21.0
-* Pillow
 * scipy 1.7.2
 * Pillow 10.0.0
 * matplotlib 3.6.3
+* pandas 1.3.2
+* sklearn 1.0.1
 
 ### How to use
 
