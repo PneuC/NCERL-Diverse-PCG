@@ -1,5 +1,5 @@
 # Negatively Correlated Ensemble RL
-Official code repository for paper "Negatively Correlated Ensemble Reinforcement Learning for Online Diverse Game Level Generation" in ICLR 2024. The paper introduced an approach named negatively correlated ensemble reinforcement learning (NCERL), which is designed to tackle the issue of lacking diversity in RL-based real-time game level generation. To see the details, please read our [paper](https://openreview.net/).
+Official code repository for paper "Negatively Correlated Ensemble Reinforcement Learning for Online Diverse Game Level Generation" in ICLR 2024. The paper introduced an approach named negatively correlated ensemble reinforcement learning (NCERL), which is designed to tackle the issue of lacking diversity in RL-based real-time game level generation. To see the details, please read our [paper](https://openreview.net/forum?id=iAW2EQXfwb).
 
 If you used the code in this repository, please cite our paper:
 ```
